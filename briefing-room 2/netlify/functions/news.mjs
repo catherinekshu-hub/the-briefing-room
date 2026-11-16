@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { decode } from 'he';
 
 const SOURCES = {
   taiwan: [
@@ -28,7 +29,16 @@ const QUERIES = {
  asia:'(Asia startup funding OR Southeast Asia venture capital OR India startup OR Japan startup OR Taiwan startup) when:5d',
  us:'(US Congress OR White House OR US politics OR Supreme Court OR US election) when:3d'
 };
-const entities = s => (s||'').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g,'$1').replace(/<[^>]*>/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(Number(n))).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+const entities = value => {
+ let text = (value || '').replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1');
+ // Feed descriptions can contain HTML encoded more than once.
+ for (let i = 0; i < 3; i++) {
+  const decoded = decode(text);
+  text = decoded.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]*>/g, ' ');
+  if (text === decoded && !/&(?:#|[a-z])/i.test(text)) break;
+ }
+ return text.replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/\s+/g, ' ').trim();
+};
 function field(xml,tag){const m=xml.match(new RegExp(`<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`,'i'));return m?entities(m[1]):''}
 function parse(xml,beat){const chunks=xml.match(/<item>[\s\S]*?<\/item>/g)||[];return chunks.map(x=>{let title=field(x,'title');let link=field(x,'link');let desc=field(x,'description');let date=field(x,'pubDate');let sourceMatch=x.match(/<source[^>]*>([\s\S]*?)<\/source>/i);let source=sourceMatch?entities(sourceMatch[1]):'Google News';return {id:createHash('sha256').update(link).digest('hex'),title,link,description:desc,date,source,beat};}).filter(x=>x.title&&x.link&&/^https?:\/\//.test(x.link));}
 async function fetchBeat(beat){const q=QUERIES[beat];const url=`https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-US&gl=US&ceid=US:en`;const r=await fetch(url,{headers:{'User-Agent':'Mozilla/5.0 BriefingRoom/1.0'},signal:AbortSignal.timeout(9000)});if(!r.ok)throw Error('Feed unavailable');return parse(await r.text(),beat).slice(0,18)}
