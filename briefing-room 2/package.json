@@ -1,1 +1,1 @@
-{"name":"briefing-room","version":"1.0.0","type":"module","scripts":{"dev":"netlify dev","build":"vite build"},"dependencies":{"he":"^2.0.0","vite":"^6.2.0"},"devDependencies":{"netlify-cli":"^23.0.0"}}
+{"name":"briefing-room","version":"1.0.0","type":"module","scripts":{"dev":"netlify dev","build":"vite build"},"dependencies":{"he":"1.2.0","vite":"^6.2.0"},"devDependencies":{"netlify-cli":"^23.0.0"}}
